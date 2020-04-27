@@ -1,0 +1,166 @@
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:async';
+import 'dart:convert';
+
+//Adicionar sua chave do hgbrasil no parâmetro key=
+const request = "https://api.hgbrasil.com/finance?format=json&key=sua_chave_aqui";
+
+void main() async {
+  runApp(MaterialApp(
+    home: Home(),
+    theme: ThemeData(
+        hintColor: Colors.amber,
+        primaryColor: Colors.white,
+        inputDecorationTheme: InputDecorationTheme(
+            enabledBorder:
+                OutlineInputBorder(borderSide: BorderSide(color: Colors.amber)),
+            focusedBorder:
+                OutlineInputBorder(borderSide: BorderSide(color: Colors.amber)),
+            hintStyle: TextStyle(color: Colors.amber))),
+  ));
+}
+
+Future<Map> getData() async {
+  http.Response response = await http.get(request);
+  return json.decode(response.body);
+}
+
+class Home extends StatefulWidget {
+  @override
+  _HomeState createState() => _HomeState();
+}
+
+class _HomeState extends State<Home> {
+  final realController = TextEditingController();
+  final dolarController = TextEditingController();
+  final euroController = TextEditingController();
+  final libraController = TextEditingController();
+
+  double dolar;
+  double euro;
+  double libra;
+
+  void _realChanged(String text) {
+    _fieldIsEmpty(text);
+    double real = double.parse(text);
+    dolarController.text = (real / dolar).toStringAsFixed(2);
+    euroController.text = (real / euro).toStringAsFixed(2);
+    libraController.text = (real / libra).toStringAsFixed(2);
+  }
+
+  void _dolarChanged(String text) {
+    _fieldIsEmpty(text);
+    double dolar = double.parse(text);
+    realController.text = (dolar * this.dolar).toStringAsFixed(2);
+    euroController.text = (dolar * this.dolar / euro).toStringAsFixed(2);
+    libraController.text = (dolar * this.dolar / libra).toStringAsFixed(2);
+  }
+
+  void _euroChanged(String text) {
+    _fieldIsEmpty(text);
+    double euro = double.parse(text);
+    realController.text = (euro * this.euro).toStringAsFixed(2);
+    dolarController.text = (euro * this.euro / dolar).toStringAsFixed(2);
+    libraController.text = (euro * this.euro / libra).toStringAsFixed(2);
+  }
+
+  void _libraChanged(String text) {
+    _fieldIsEmpty(text);
+    double libra = double.parse(text);
+    realController.text = (libra * this.libra).toStringAsFixed(2);
+    dolarController.text = (libra * this.libra / dolar).toStringAsFixed(2);
+    euroController.text = (libra * this.libra / euro).toStringAsFixed(2);
+  }
+
+  void _fieldIsEmpty(String text) {
+    if (text.isEmpty) {
+      _clearAll();
+    }
+  }
+
+  void _clearAll() {
+    realController.text = "";
+    dolarController.text = "";
+    euroController.text = "";
+    libraController.text = "";
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        title: Text("\$ Conversor de Moedas \$"),
+        backgroundColor: Colors.amber,
+        centerTitle: true,
+      ),
+      body: FutureBuilder<Map>(
+          future: getData(),
+          builder: (context, snapshot) {
+            switch (snapshot.connectionState) {
+              case ConnectionState.none:
+              case ConnectionState.waiting:
+                return Center(child: loadingText("Carregando dados..."));
+              default:
+                if (snapshot.hasError) {
+                  return Center(
+                      child: loadingText("Erro ao carregar os dados!"));
+                } else {
+                  dolar = getCurrenciesValues(snapshot.data, "USD");
+                  euro = getCurrenciesValues(snapshot.data, "EUR");
+                  libra = getCurrenciesValues(snapshot.data, "GBP");
+
+                  return SingleChildScrollView(
+                    padding: EdgeInsets.all(10.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        Icon(Icons.monetization_on,
+                            size: 150.0, color: Colors.amber),
+                        buildTextField(
+                            "Reais", "R\$ ", realController, _realChanged),
+                        Divider(),
+                        buildTextField(
+                            "Dólares", "US\$ ", dolarController, _dolarChanged),
+                        Divider(),
+                        buildTextField(
+                            "Euros", "€ ", euroController, _euroChanged),
+                        Divider(),
+                        buildTextField("Libras", "£ ", libraController, _libraChanged)
+                      ],
+                    ),
+                  );
+                }
+            }
+          }),
+    );
+  }
+}
+
+Widget buildTextField(String label, String prefix,
+    TextEditingController controller, Function function) {
+  return TextField(
+    controller: controller,
+    decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: Colors.amber),
+        border: OutlineInputBorder(),
+        prefixText: prefix),
+    style: TextStyle(color: Colors.amber, fontSize: 25.0),
+    onChanged: function,
+    keyboardType: TextInputType.numberWithOptions(decimal: true),
+  );
+}
+
+Text loadingText(String message) {
+  return Text(
+    message,
+    style: TextStyle(color: Colors.amber, fontSize: 25.0),
+    textAlign: TextAlign.center,
+  );
+}
+
+double getCurrenciesValues(Map data, String type) {
+  return data["results"]["currencies"][type]["buy"];
+}
